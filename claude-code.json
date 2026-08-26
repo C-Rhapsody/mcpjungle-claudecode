@@ -1,0 +1,10 @@
+{
+  "name": "claude-code",
+  "transport": "stdio",
+  "description": "Claude Code tools exposed through MCPJungle",
+  "command": "claude",
+  "args": ["mcp", "serve"],
+  "env": {
+    "HOME": "/root"
+  }
+}

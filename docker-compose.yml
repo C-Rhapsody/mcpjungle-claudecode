@@ -1,0 +1,55 @@
+services:
+  mcpjungle:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcpjungle-claude
+    image: mcpjungle-claude-code:local
+    container_name: mcpjungle-claude-code
+    hostname: mcpjungle-claude-code
+    restart: unless-stopped
+    working_dir: /workspace
+    entrypoint:
+      - /usr/local/bin/mcpjungle-claude-entrypoint
+    environment:
+      HOME: /root
+      SQLITE_DB_PATH: /var/lib/mcpjungle/mcpjungle.db
+      SERVER_MODE: "${SERVER_MODE:-development}"
+      OTEL_ENABLED: "${OTEL_ENABLED:-false}"
+      MCP_SERVER_INIT_REQ_TIMEOUT_SEC: "${MCP_SERVER_INIT_REQ_TIMEOUT_SEC:-10}"
+      CLAUDE_CODE_WORKDIR: "${CLAUDE_CODE_WORKDIR:-/workspace}"
+    volumes:
+      - mcpjungle-data:/var/lib/mcpjungle
+      - claude-code-state:/root/.claude
+      - "${CLAUDE_CODE_WORKSPACE:-./workspace}:/workspace:rw"
+      - "./claude-code.json:/etc/mcpjungle/claude-code.json:ro"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8080/health"
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mcpjungle-cloudflared
+    restart: unless-stopped
+    network_mode: "service:mcpjungle"
+    depends_on:
+      mcpjungle:
+        condition: service_healthy
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - "${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}"
+
+volumes:
+  mcpjungle-data:
+  claude-code-state:

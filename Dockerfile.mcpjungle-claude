@@ -1,0 +1,17 @@
+FROM ghcr.io/mcpjungle/mcpjungle:latest-stdio
+
+USER root
+
+ENV HOME=/root
+
+RUN npm install --global @anthropic-ai/claude-code
+
+COPY mcpjungle-claude-entrypoint /usr/local/bin/mcpjungle-claude-entrypoint
+COPY claude-code.json /etc/mcpjungle/claude-code.json
+
+RUN chmod 0755 /usr/local/bin/mcpjungle-claude-entrypoint \
+    && mkdir -p /var/lib/mcpjungle /workspace /root/.claude
+
+WORKDIR /workspace
+
+ENTRYPOINT ["/usr/local/bin/mcpjungle-claude-entrypoint"]

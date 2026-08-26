@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+: "${SQLITE_DB_PATH:=/var/lib/mcpjungle/mcpjungle.db}"
+: "${CLAUDE_CODE_WORKDIR:=/workspace}"
+
+mkdir -p "$(dirname "${SQLITE_DB_PATH}")" "${CLAUDE_CODE_WORKDIR}"
+cd "${CLAUDE_CODE_WORKDIR}"
+
+/mcpjungle start &
+mcpjungle_pid=$!
+
+cleanup() {
+    if kill -0 "${mcpjungle_pid}" 2>/dev/null; then
+        kill "${mcpjungle_pid}" 2>/dev/null || true
+    fi
+}
+trap cleanup INT TERM EXIT
+
+for attempt in $(seq 1 60); do
+    if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
+        break
+    fi
+    if ! kill -0 "${mcpjungle_pid}" 2>/dev/null; then
+        wait "${mcpjungle_pid}" || true
+        echo "mcpjungle failed before becoming healthy" >&2
+        exit 1
+    fi
+    sleep 1
+done
+
+if ! curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
+    echo "mcpjungle health check timed out" >&2
+    exit 1
+fi
+
+registration_marker="/var/lib/mcpjungle/.claude-code-registered"
+if [[ ! -f "${registration_marker}" ]]; then
+    /mcpjungle --registry http://127.0.0.1:8080 register \
+        -c /etc/mcpjungle/claude-code.json
+    touch "${registration_marker}"
+fi
+
+wait "${mcpjungle_pid}"
