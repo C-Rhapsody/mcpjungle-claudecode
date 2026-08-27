@@ -5,6 +5,7 @@
   "command": "claude",
   "args": ["mcp", "serve"],
   "env": {
-    "HOME": "/root"
+    "HOME": "/root",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
   }
 }
